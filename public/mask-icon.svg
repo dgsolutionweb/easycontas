@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512px" height="512px" viewBox="0 0 512 512" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <title>Gestor de Contas</title>
+    <g id="Logo" stroke="none" stroke-width="1" fill="#4338ca" fill-rule="evenodd">
+        <circle id="Background" cx="256" cy="256" r="256"></circle>
+        <path d="M256,128 C300.183,128 336,163.817 336,208 C336,252.183 300.183,288 256,288 C211.817,288 176,252.183 176,208 C176,163.817 211.817,128 256,128 Z M176,304 L336,304 C380.183,304 416,339.817 416,384 L416,416 L96,416 L96,384 C96,339.817 131.817,304 176,304 Z" id="User" fill="#FFFFFF"></path>
+    </g>
+</svg> 
