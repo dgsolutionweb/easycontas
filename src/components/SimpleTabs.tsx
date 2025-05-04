@@ -60,7 +60,7 @@ export function SimpleTabs({ defaultValue, children, className = '' }: TabsProps
 
 export function SimpleTabsList({ children, className = '' }: TabsListProps) {
   return (
-    <div className={`tabs-list inline-flex rounded-md bg-gray-100 p-1 ${className}`}>
+    <div className={`tabs-list inline-flex rounded-md bg-accent p-1 ${className}`}>
       {children}
     </div>
   );
@@ -84,8 +84,8 @@ export function SimpleTabsTrigger({
       onClick={handleClick}
       className={`tabs-trigger px-4 py-2 text-sm font-medium rounded-md transition-colors ${
         isActive
-          ? 'bg-white text-blue-600 shadow-sm'
-          : 'text-gray-600 hover:text-blue-600'
+          ? 'bg-card text-primary shadow-sm'
+          : 'text-muted-foreground hover:text-primary'
       } ${className}`}
       data-value={value}
       data-active={isActive}

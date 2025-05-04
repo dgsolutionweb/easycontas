@@ -12,7 +12,11 @@ import { SimpleTabs, SimpleTabsList, SimpleTabsTrigger, SimpleTabsContent } from
 type FilterStatus = 'all' | 'paid' | 'pending' | 'overdue';
 type BillFormMode = 'add' | 'edit';
 
-export function Home() {
+type HomeProps = {
+  onBillsLoaded?: (bills: Bill[]) => void;
+};
+
+export function Home({ onBillsLoaded }: HomeProps) {
   const [bills, setBills] = useState<Bill[]>([]);
   const [budgetEntries, setBudgetEntries] = useState<Budget[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,6 +29,7 @@ export function Home() {
   const [formMode, setFormMode] = useState<BillFormMode>('add');
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [selectedBudgetEntry, setSelectedBudgetEntry] = useState<Budget | null>(null);
   
   // Obter o mês e ano atual
   const { month, year } = getCurrentMonthYear();
@@ -129,6 +134,12 @@ export function Home() {
       
       console.log(`fetchBills: ${data?.length || 0} contas encontradas`);
       setBills(data as Bill[]);
+      
+      // Notificar o componente App sobre as contas carregadas
+      if (onBillsLoaded && data) {
+        onBillsLoaded(data as Bill[]);
+      }
+      
       return data;
     } catch (error) {
       console.error('Erro ao buscar contas:', error);
@@ -487,6 +498,7 @@ Digite o número da opção desejada:`);
         console.log("handleAddBudgetEntry: Orçamento adicionado com sucesso:", data[0].id);
         setBudgetEntries(prevEntries => [...prevEntries, data[0] as Budget]);
         setShowBudgetForm(false);
+        setSelectedBudgetEntry(null);
         toast.success('Orçamento atualizado com sucesso');
       }
     } catch (error) {
@@ -494,6 +506,80 @@ Digite o número da opção desejada:`);
       toast.error('Falha ao adicionar ao orçamento');
       throw error;
     }
+  };
+  
+  // Função para editar uma entrada de orçamento
+  const handleEditBudgetEntry = async (budget: Omit<Budget, 'id' | 'created_at'>) => {
+    if (!currentUser || !selectedBudgetEntry) {
+      toast.error("Não foi possível atualizar o orçamento");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('budget')
+        .update({
+          ...budget,
+          user_id: currentUser.id // Garantir que user_id seja mantido
+        })
+        .eq('id', selectedBudgetEntry.id)
+        .eq('user_id', currentUser.id); // Garantir que apenas o dono possa atualizar
+
+      if (error) {
+        console.error("handleEditBudgetEntry: Erro ao atualizar orçamento:", error);
+        throw error;
+      }
+
+      // Atualizar a lista local de entradas
+      setBudgetEntries(prevEntries => 
+        prevEntries.map(entry => 
+          entry.id === selectedBudgetEntry.id 
+            ? { ...entry, ...budget, user_id: currentUser.id } 
+            : entry
+        )
+      );
+      
+      setShowBudgetForm(false);
+      setSelectedBudgetEntry(null);
+      toast.success("Orçamento atualizado com sucesso!");
+    } catch (error) {
+      console.error('Erro ao atualizar orçamento:', error);
+      toast.error('Falha ao atualizar orçamento');
+      throw error;
+    }
+  };
+  
+  // Função para excluir uma entrada de orçamento
+  const handleDeleteBudgetEntry = async (id: string) => {
+    if (!currentUser) {
+      toast.error("Você precisa estar logado para excluir entradas do orçamento");
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('budget')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', currentUser.id); // Garantir que apenas o dono possa excluir
+
+      if (error) {
+        console.error("handleDeleteBudgetEntry: Erro ao excluir entrada de orçamento:", error);
+        throw error;
+      }
+
+      setBudgetEntries(prevEntries => prevEntries.filter(entry => entry.id !== id));
+      toast.success('Entrada excluída com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir entrada de orçamento:', error);
+      toast.error('Falha ao excluir entrada');
+    }
+  };
+  
+  // Função para iniciar a edição de uma entrada de orçamento
+  const handleEditBudgetClick = (entry: Budget) => {
+    setSelectedBudgetEntry(entry);
+    setShowBudgetForm(true);
   };
 
   const handleEditBill = (bill: Bill) => {
@@ -508,11 +594,13 @@ Digite o número da opção desejada:`);
     setShowForm(true);
   };
 
-  // Adicionar função para mostrar o formulário de orçamento
+  // Modificar a função para mostrar o formulário de orçamento
   const handleShowBudgetForm = () => {
     console.log("Home: Exibindo formulário de orçamento");
     // Para evitar que o formulário de contas seja exibido ao mesmo tempo
     setShowForm(false);
+    // Limpar qualquer seleção anterior
+    setSelectedBudgetEntry(null);
     // Exibir o formulário de orçamento
     setShowBudgetForm(true);
   };
@@ -523,29 +611,30 @@ Digite o número da opção desejada:`);
     setShowBudgetForm(false);
   };
 
+  // Filtrar contas com base no status, tipo e termo de busca
   const filteredBills = bills.filter(bill => {
-    // Filtro por texto de busca
-    const matchesSearch = search === '' || 
-      bill.description.toLowerCase().includes(search.toLowerCase());
-
-    // Filtro por status
-    let matchesStatus = true;
-    if (statusFilter === 'paid') {
-      matchesStatus = bill.paid;
-    } else if (statusFilter === 'pending') {
-      matchesStatus = !bill.paid && new Date(bill.due_date) >= new Date();
-    } else if (statusFilter === 'overdue') {
+    // Status filter
+    if (statusFilter === 'paid' && !bill.paid) return false;
+    if (statusFilter === 'pending' && bill.paid) return false;
+    if (statusFilter === 'overdue') {
+      const dueDate = new Date(bill.due_date);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const dueDate = new Date(bill.due_date);
-      dueDate.setHours(0, 0, 0, 0);
-      matchesStatus = !bill.paid && dueDate < today;
+      
+      // Se a conta estiver paga ou a data de vencimento for no futuro, não é "overdue"
+      if (bill.paid || dueDate >= today) return false;
     }
     
-    // Filtro por tipo de conta
-    const matchesType = billTypeFilter === 'all' || bill.bill_type === billTypeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
+    // Bill type filter
+    if (billTypeFilter !== 'all' && bill.bill_type !== billTypeFilter) return false;
+    
+    // Search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      return bill.description.toLowerCase().includes(searchLower);
+    }
+    
+    return true;
   });
 
   // Calcula o total e o total dividido
@@ -576,9 +665,9 @@ Digite o número da opção desejada:`);
 
   // Renderizando o conteúdo principal
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6">
-      <SimpleTabs defaultValue="bills" className="space-y-6">
-        <SimpleTabsList>
+    <div className="max-w-4xl mx-auto px-3 py-4 sm:p-6">
+      <SimpleTabs defaultValue="bills" className="space-y-4 sm:space-y-6">
+        <SimpleTabsList className="overflow-x-auto">
           <SimpleTabsTrigger value="bills">Contas</SimpleTabsTrigger>
           <SimpleTabsTrigger value="budget">Orçamento</SimpleTabsTrigger>
         </SimpleTabsList>
@@ -599,9 +688,9 @@ Digite o número da opção desejada:`);
               <p>Carregando contas...</p>
             </div>
           ) : showForm ? (
-            <div className="mb-8">
+            <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-lg sm:text-xl font-semibold">
                   {formMode === 'add' ? 'Adicionar Nova Conta' : 'Editar Conta'}
                 </h2>
                 <button 
@@ -645,47 +734,56 @@ Digite o número da opção desejada:`);
                 </div>
               ) : (
                 <>
-                  <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="card bg-blue-50">
-                      <p className="text-sm text-blue-600 font-medium">Total de Contas</p>
-                      <p className="text-2xl font-bold mt-1">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 mb-4">
+                    <div className="card bg-blue-50 dark:bg-blue-950/30 p-3">
+                      <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 font-medium">Total de Contas</p>
+                      <p className="text-lg sm:text-2xl font-bold mt-1 text-blue-700 dark:text-blue-300 truncate">
                         {new Intl.NumberFormat('pt-BR', {
                           style: 'currency',
-                          currency: 'BRL'
+                          currency: 'BRL',
+                          maximumFractionDigits: 2
                         }).format(totalAmount)}
                       </p>
                     </div>
                     
-                    <div className="card bg-purple-50">
-                      <p className="text-sm text-purple-600 font-medium">Total Dividido</p>
-                      <p className="text-2xl font-bold mt-1">
+                    <div className="card bg-purple-50 dark:bg-purple-950/30 p-3">
+                      <p className="text-xs sm:text-sm text-purple-600 dark:text-purple-400 font-medium">Total Dividido</p>
+                      <p className="text-lg sm:text-2xl font-bold mt-1 text-purple-700 dark:text-purple-300 truncate">
                         {new Intl.NumberFormat('pt-BR', {
                           style: 'currency',
-                          currency: 'BRL'
+                          currency: 'BRL',
+                          maximumFractionDigits: 2
                         }).format(totalSplitAmount)}
                       </p>
                     </div>
                     
-                    <div className="card bg-green-50">
-                      <p className="text-sm text-green-600 font-medium">Total Pago</p>
-                      <p className="text-2xl font-bold mt-1">
+                    <div className="card bg-green-50 dark:bg-green-950/30 p-3 xs:col-span-2 md:col-span-1">
+                      <p className="text-xs sm:text-sm text-green-600 dark:text-green-400 font-medium">Total Pago</p>
+                      <p className="text-lg sm:text-2xl font-bold mt-1 text-green-700 dark:text-green-300 truncate">
                         {new Intl.NumberFormat('pt-BR', {
                           style: 'currency',
-                          currency: 'BRL'
+                          currency: 'BRL',
+                          maximumFractionDigits: 2
                         }).format(totalPaidAmount)}
                       </p>
                     </div>
                   </div>
                   
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {filteredBills.map(bill => (
-                      <BillCard
+                      <div 
+                        id={`bill-${bill.id}`} 
                         key={bill.id}
-                        bill={bill}
-                        onEdit={handleEditBill}
-                        onDelete={handleDeleteBill}
-                        onTogglePaid={handleTogglePaid}
-                      />
+                        className="transition-all duration-300"
+                      >
+                        <BillCard
+                          bill={bill}
+                          onTogglePaid={handleTogglePaid}
+                          onEdit={() => handleEditBill(bill)}
+                          onDelete={handleDeleteBill}
+                          onDeleteInstallments={() => handleDeleteInstallment(bill)}
+                        />
+                      </div>
                     ))}
                   </div>
                 </>
@@ -700,9 +798,11 @@ Digite o número da opção desejada:`);
               <p>Carregando orçamento...</p>
             </div>
           ) : showBudgetForm ? (
-            <div className="mb-8">
+            <div className="mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Adicionar Receita/Despesa</h2>
+                <h2 className="text-lg sm:text-xl font-semibold">
+                  {selectedBudgetEntry ? 'Editar Entrada' : 'Adicionar Receita/Despesa'}
+                </h2>
                 <button 
                   onClick={handleCloseBudgetForm}
                   className="text-sm text-gray-500 hover:text-gray-700"
@@ -711,11 +811,12 @@ Digite o número da opção desejada:`);
                 </button>
               </div>
               
-              <div className="card">
+              <div className="card bg-card dark:bg-card/80 shadow-md">
                 <BudgetForm 
-                  onSubmit={handleAddBudgetEntry}
+                  onSubmit={selectedBudgetEntry ? handleEditBudgetEntry : handleAddBudgetEntry}
                   onCancel={handleCloseBudgetForm}
-                  buttonText="Adicionar ao Orçamento"
+                  buttonText={selectedBudgetEntry ? "Salvar Alterações" : "Adicionar ao Orçamento"}
+                  initialData={selectedBudgetEntry || {}}
                 />
               </div>
             </div>
@@ -727,10 +828,24 @@ Digite o número da opção desejada:`);
               month={month}
               year={year}
               onAddEntry={handleShowBudgetForm}
+              onEditEntry={handleEditBudgetClick}
+              onDeleteEntry={handleDeleteBudgetEntry}
             />
           )}
         </SimpleTabsContent>
       </SimpleTabs>
     </div>
   );
+}
+
+// Função auxiliar para calcular o total de contas
+function getTotalAmount(bills: Bill[]) {
+  return bills.reduce((total, bill) => total + bill.amount, 0);
+}
+
+// Função auxiliar para calcular o total pago
+function getTotalPaid(bills: Bill[]) {
+  return bills
+    .filter(bill => bill.paid)
+    .reduce((total, bill) => total + bill.amount, 0);
 } 

@@ -164,7 +164,7 @@ export function BudgetForm({
         <button 
           type="button"
           onClick={onCancel} 
-          className="btn border border-gray-300 flex-1"
+          className="btn border border-card-border bg-accent/50 hover:bg-accent/70 text-accent-foreground flex-1 transition-colors"
         >
           Cancelar
         </button>

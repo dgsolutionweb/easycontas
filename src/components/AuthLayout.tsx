@@ -3,7 +3,9 @@ import { toast } from 'react-hot-toast';
 import { supabase, signOut, AuthUser } from '../lib/supabase';
 import { LoginForm } from './LoginForm';
 import { RegisterForm } from './RegisterForm';
+import { ThemeToggle } from './ui/ThemeToggle';
 import logoImg from '../assets/logo.png';
+import { Menu, User, LogOut } from 'lucide-react';
 
 type AuthLayoutProps = {
   children: React.ReactNode;
@@ -14,6 +16,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Verificar usuário ao carregar a página
   useEffect(() => {
@@ -95,13 +98,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   if (isLoading) {
     console.log("AuthLayout: Exibindo estado de carregamento");
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="text-center p-6 bg-white rounded-lg shadow-md">
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center p-6 bg-card rounded-lg shadow-md border border-card-border">
           <img src={logoImg} alt="Logo EasyContas" className="h-20 mx-auto mb-4" />
           <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-lg font-medium text-gray-700">Carregando...</p>
+          <p className="text-lg font-medium text-foreground">Carregando...</p>
           {authError && (
-            <p className="mt-2 text-sm text-red-600">{authError}</p>
+            <p className="mt-2 text-sm text-destructive">{authError}</p>
           )}
         </div>
       </div>
@@ -112,12 +115,16 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   if (!user) {
     console.log("AuthLayout: Exibindo formulários de login/registro");
     return (
-      <div className="min-h-screen bg-gray-50 py-12 px-4">
+      <div className="min-h-screen bg-background py-12 px-4">
+        <div className="absolute top-4 right-4">
+          <ThemeToggle />
+        </div>
+        
         <div className="max-w-md mx-auto">
           <div className="text-center mb-8">
             <img src={logoImg} alt="Logo EasyContas" className="h-24 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-primary">EasyContas</h1>
-            <p className="text-gray-600 mt-2">Gerencie suas contas de forma simples e eficiente</p>
+            <p className="text-muted-foreground mt-2">Gerencie suas contas de forma simples e eficiente</p>
           </div>
           
           {authView === 'login' ? (
@@ -143,26 +150,70 @@ export function AuthLayout({ children }: AuthLayoutProps) {
   // Exibir aplicação principal
   console.log("AuthLayout: Renderizando aplicação principal com usuário:", user?.id);
   return (
-    <div>
-      <div className="bg-primary text-white px-4 py-2 flex justify-between items-center">
-        <div className="flex items-center">
-          <img src={logoImg} alt="Logo" className="h-8 mr-2" />
-          <h1 className="font-bold text-xl">EasyContas</h1>
+    <div className="min-h-screen bg-background">
+      <div className="bg-primary dark:bg-primary/90 text-primary-foreground px-4 py-3 shadow-md">
+        {/* Header principal */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center">
+            <img src={logoImg} alt="Logo" className="h-8 mr-2" />
+            <h1 className="font-bold text-xl">EasyContas</h1>
+          </div>
+          
+          {/* Versão desktop do menu do usuário */}
+          <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
+            
+            <div className="flex items-center gap-2">
+              <User size={16} />
+              <span className="text-sm">
+                {user?.user_metadata?.full_name || user?.email}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1 text-sm bg-accent/30 hover:bg-accent/40 text-accent-foreground rounded transition-colors flex items-center gap-1"
+            >
+              <LogOut size={16} />
+              <span>Sair</span>
+            </button>
+          </div>
+          
+          {/* Botão de menu para dispositivos móveis */}
+          <div className="flex items-center gap-2 md:hidden">
+            <ThemeToggle />
+            
+            <button 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-1.5 rounded-full bg-accent/30 hover:bg-accent/40 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm">
-            {user.user_metadata?.full_name || user.email}
-          </span>
-          <button
-            onClick={handleLogout}
-            className="px-3 py-1 text-sm bg-white/20 rounded hover:bg-white/30 transition-colors"
-          >
-            Sair
-          </button>
-        </div>
+        
+        {/* Menu móvel expansível */}
+        {mobileMenuOpen && (
+          <div className="mt-3 py-2 border-t border-accent/30 md:hidden">
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <User size={16} />
+              <span className="text-sm font-medium">
+                {user?.user_metadata?.full_name || user?.email}
+              </span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="w-full mt-2 px-3 py-2 text-sm bg-accent/30 rounded hover:bg-accent/40 transition-colors flex items-center gap-2"
+            >
+              <LogOut size={16} />
+              <span>Sair</span>
+            </button>
+          </div>
+        )}
       </div>
       
-      {children}
+      <div className="container mx-auto px-4 py-4">
+        {children}
+      </div>
     </div>
   );
 } 

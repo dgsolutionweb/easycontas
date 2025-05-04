@@ -2,14 +2,30 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="EasyContas - Gerencie suas finanças pessoais de forma simples e eficiente" />
-    <meta name="theme-color" content="#4338ca" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="EasyContas - Gerencie suas contas de forma simples e eficiente" />
+    <meta name="theme-color" content="#1e293b" />
+    <link rel="apple-touch-icon" href="/icon-192x192.png" sizes="192x192" />
+    <link rel="mask-icon" href="/icon-512x512.png" color="#1e293b" />
     <title>EasyContas</title>
+    <script>
+      // Inicializar o tema antes de renderizar a página para evitar flash
+      (function() {
+        const savedTheme = localStorage.getItem('theme');
+        const root = window.document.documentElement;
+        
+        if (savedTheme === 'dark') {
+          root.classList.add('dark');
+        } else if (savedTheme === 'light') {
+          root.classList.add('light');
+        } else {
+          // Se não tiver preferência salva, usar a preferência do sistema
+          const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          root.classList.add(systemTheme);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
