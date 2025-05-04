@@ -836,16 +836,4 @@ Digite o número da opção desejada:`);
       </SimpleTabs>
     </div>
   );
-}
-
-// Função auxiliar para calcular o total de contas
-function getTotalAmount(bills: Bill[]) {
-  return bills.reduce((total, bill) => total + bill.amount, 0);
-}
-
-// Função auxiliar para calcular o total pago
-function getTotalPaid(bills: Bill[]) {
-  return bills
-    .filter(bill => bill.paid)
-    .reduce((total, bill) => total + bill.amount, 0);
 } 
